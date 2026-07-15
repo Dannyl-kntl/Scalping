@@ -1,13 +1,13 @@
-name: Direct Masak - Scraper Otomatis
+name: Bot Scalping Final
 
 on:
   schedule:
-    - cron: '0 0 * * 1-5'    # 07:00 WIB
-    - cron: '45 8 * * 1-5'   # 15:45 WIB
-  workflow_dispatch:
+    - cron: '0 0 * * 1-5'    # 07:00 WIB (00:00 UTC)
+    - cron: '45 8 * * 1-5'   # 15:45 WIB (08:45 UTC)
+  workflow_dispatch:          # Untuk tes manual
 
 jobs:
-  scrape:
+  scan:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,5 +18,5 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install yfinance pandas-ta requests beautifulsoup4 lxml
-      - name: Jalankan Bot Direct Masak
+      - name: Jalankan Bot
         run: python gorengan.py
