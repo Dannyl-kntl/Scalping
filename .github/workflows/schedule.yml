@@ -1,180 +1,22 @@
-# ===== BOT SCALPING GORENGAN (VERSI DOWNLOAD MASSAL - PASTI DAPAT DATA) =====
-import yfinance as yf
-import pandas as pd
-import pandas_ta as ta
-import requests
-from datetime import datetime
-import warnings
-warnings.filterwarnings('ignore')
+name: Scalping Gorengan Otomatis
 
-# ========== 🔴 GANTI DENGAN DATA ASLI KAMU ==========
-TOKEN = "8995282419:AAHGtJIb3oeJHtf0LmmeSIpMNpNwjXv1ZK4"   # Ganti dengan token dari @BotFather
-CHAT_ID = "8467853860"      # ID Telegram kamu
-# =====================================================
+on:
+  schedule:
+    - cron: '0 0 * * 1-5'    # 07:00 WIB (00:00 UTC) - Pagi sebelum market buka
+    - cron: '45 8 * * 1-5'   # 15:45 WIB (08:45 UTC) - Sore setelah market tutup
+  workflow_dispatch:          # Biar kamu bisa jalankan manual (tes) lewat tombol Actions
 
-# ========== DAFTAR 30 SAHAM SCALPING ==========
-LIST_SAHAM = [
-    'BUMI.JK', 'ELSA.JK', 'ENRG.JK', 'MEDC.JK', 'PGUN.JK', 'BREN.JK',
-    'ANTM.JK', 'AMMN.JK', 'CUAN.JK', 'BNII.JK',
-    'ASRI.JK', 'BIPI.JK', 'SMRA.JK', 'PWON.JK', 'BSDE.JK', 'WIKA.JK',
-    'FREN.JK', 'MORA.JK', 'MTEL.JK', 'BUKA.JK',
-    'FILM.JK', 'MCOL.JK', 'RANS.JK', 'MYRX.JK'
-]
-
-def kirim_pesan(pesan):
-    try:
-        url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-        resp = requests.get(url, params={'chat_id': CHAT_ID, 'text': pesan, 'parse_mode': 'HTML'}, timeout=30)
-        print("✅ Pesan terkirim!" if resp.status_code == 200 else f"❌ Gagal: {resp.status_code}")
-    except Exception as e:
-        print(f"❌ Error kirim: {e}")
-
-def analisis_massal():
-    """Download semua saham sekaligus menggunakan yf.download"""
-    hasil = []
-    
-    # 🔥 INI KUNCI SUKSESNYA: DOWNLOAD SEKALIGUS
-    print("📥 Mengunduh data 26 saham sekaligus...")
-    data = yf.download(
-        tickers=LIST_SAHAM, 
-        period="60d", 
-        group_by='ticker', 
-        threads=False,  # Matikan threading biar stabil
-        progress=False
-    )
-    
-    for kode in LIST_SAHAM:
-        try:
-            # Ambil data per saham dari hasil download massal
-            if kode not in data or data[kode].empty:
-                print(f"⚠️ Data kosong untuk {kode}")
-                continue
-                
-            df = data[kode].copy()
-            if len(df) < 20:
-                print(f"⚠️ Data kurang untuk {kode}")
-                continue
-            
-            info = yf.Ticker(kode).info  # Ambil info tambahan (nama, kapitalisasi)
-            
-            last = df.iloc[-1]
-            prev = df.iloc[-2]
-            
-            # Hitung Indikator
-            df['RSI'] = ta.rsi(df['Close'], length=14)
-            df['MA20'] = ta.sma(df['Close'], length=20)
-            df['ATR'] = ta.atr(df['High'], df['Low'], df['Close'], length=14)
-            
-            last_rsi = df['RSI'].iloc[-1]
-            harga = last['Close']
-            atr = df['ATR'].iloc[-1]
-            perubahan = ((harga - prev['Close']) / prev['Close']) * 100
-            
-            # Volume
-            vol_hari = last['Volume']
-            vol_kemarin = prev['Volume']
-            avg_vol_5 = df['Volume'].rolling(5).mean().iloc[-1]
-            
-            vs_kemarin = vol_hari / vol_kemarin if vol_kemarin > 0 else 0
-            vs_minggu = vol_hari / avg_vol_5 if avg_vol_5 > 0 else 0
-            
-            # === BANDARMOLOGY ===
-            bandar_score = 0
-            bandar_label = "⚪ Tidak terdeteksi"
-            if vs_minggu > 2.0:
-                bandar_score += 3
-                bandar_label = "🔴 Akumulasi Bandar"
-            if vs_minggu > 1.5 and harga > df['MA20'].iloc[-1]:
-                bandar_score += 2
-                bandar_label += " & Proteksi MA20"
-            
-            if bandar_score >= 5: bandar_status = "🔥 BANDAR TERDETEKSI"
-            elif bandar_score >= 3: bandar_status = "⚠️ Potensi Bandar"
-            else: bandar_status = "✅ Normal"
-            
-            # Skor Akhir
-            skor_akhir = bandar_score
-            if last_rsi > 70: skor_akhir += 1
-            if abs(perubahan) > 5: skor_akhir += 1
-            if vs_minggu > 3.0: skor_akhir += 1
-            
-            if skor_akhir >= 6:
-                status = "🔴 INDIKASI GORENGAN TINGGI"
-                rekom = "HINDARI! Resiko besar."
-            elif skor_akhir >= 4:
-                status = "🟡 POTENSI SCALPING (WASPADA)"
-                rekom = "Cocok scalping, pasang SL ketat!"
-            else:
-                status = "🟢 Normal"
-                rekom = "Aman untuk trading."
-            
-            if atr:
-                sl = round(harga - (1.8 * atr), 2)
-                tp = round(harga + (3.0 * atr), 2)
-            else:
-                sl, tp = 0, 0
-            
-            market_cap = info.get('marketCap', 0)
-            kap_str = f"Rp{market_cap/1e12:.2f}T" if market_cap > 0 else "N/A"
-            
-            hasil.append({
-                'kode': kode.replace('.JK', ''),
-                'nama': info.get('shortName', kode)[:25],
-                'harga': harga,
-                'perubahan': perubahan,
-                'rsi': round(last_rsi, 2),
-                'ma20': round(df['MA20'].iloc[-1], 2),
-                'vol_hari': int(vol_hari),
-                'avg_vol_5': int(avg_vol_5),
-                'vs_minggu': round(vs_minggu, 1),
-                'bandar_status': bandar_status,
-                'skor': skor_akhir,
-                'status': status,
-                'rekom': rekom,
-                'sl': sl,
-                'tp': tp,
-                'kap': kap_str,
-            })
-        except Exception as e:
-            print(f"❌ Error proses {kode}: {e}")
-    
-    return hasil
-
-# ========== MAIN ==========
-waktu = datetime.now().strftime('%d-%m-%Y %H:%M')
-print(f"🚀 Scan Scalping dimulai: {waktu}")
-
-semua_hasil = analisis_massal()
-semua_hasil.sort(key=lambda x: x['skor'], reverse=True)
-
-berbahaya = [h for h in semua_hasil if h['skor'] >= 4]
-aman = [h for h in semua_hasil if h['skor'] < 4]
-
-# === SUSUN PESAN ===
-pesan = f"<b>⚡ SCALPING GORENGAN</b> - {waktu} WIB\n"
-pesan += f"<b>Total:</b> {len(semua_hasil)} saham | <b>Sinyal:</b> {len(berbahaya)}\n"
-pesan += "================================\n"
-
-if berbahaya:
-    pesan += "<b>🚨 SAHAM DENGAN POTENSI SCALPING</b>\n\n"
-    for h in berbahaya[:5]:
-        pesan += f"🏢 <b>{h['kode']}</b> - {h['nama']}\n"
-        pesan += f"💰 Rp{h['harga']:.0f} | 📈 {h['perubahan']:+.2f}%\n"
-        pesan += f"📊 RSI: {h['rsi']} | MA20: Rp{h['ma20']:.0f}\n"
-        pesan += f"📦 Vol: {h['vol_hari']:,} | Vs Minggu: {h['vs_minggu']}x\n"
-        pesan += f"🕵️ <b>Bandarmology:</b> {h['bandar_status']}\n"
-        pesan += f"⚠️ <b>Status:</b> {h['status']}\n"
-        pesan += f"💡 <b>Strategi:</b> {h['rekom']}\n"
-        pesan += f"🔴 <b>SL:</b> Rp{h['sl']:.0f} | 🟢 <b>TP:</b> Rp{h['tp']:.0f}\n"
-        pesan += f"📋 Kap: {h['kap']}\n"
-        pesan += "------------------------\n"
-else:
-    pesan += "\n✅ Tidak ada saham dengan potensi scalping tinggi.\n"
-
-if aman and len(aman) > 0:
-    pesan += "\n<b>📊 PANTAUAN:</b>\n"
-    for h in aman[:3]:
-        pesan += f"🔹 {h['kode']} | Skor: {h['skor']} | RSI: {h['rsi']}\n"
-
-kirim_pesan(pesan)
-print("✅ Selesai! Cek Telegram.")
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Library
+        run: |
+          python -m pip install --upgrade pip
+          pip install yfinance pandas-ta requests
+      - name: Jalankan Bot Scalping
+        run: python gorengan.py
