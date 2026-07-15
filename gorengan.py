@@ -10,8 +10,8 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # ========== GANTI DENGAN DATA ASLI KAMU ==========
-TOKEN = "TOKEN_BARU_KAMU"
-CHAT_ID = "8995282419"
+TOKEN = "8777887691:AAHOTjVBkeiCMeHd4xOJkOHcX4dali-8hdE"
+CHAT_ID = "8467853860"
 # =================================================
 
 LIST_SAHAM = [
