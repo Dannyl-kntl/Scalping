@@ -20,3 +20,4 @@ jobs:
           pip install yfinance pandas-ta requests beautifulsoup4 lxml
       - name: Jalankan Bot
         run: python gorengan.py
+# trigger update
